@@ -1,0 +1,90 @@
+html {
+  height: 100%;
+}
+
+body {
+  font-family: "Lexend", sans-serif !important;
+  height: 100%;
+  margin: 0;
+  /* background-repeat: no-repeat;
+  background-attachment: fixed; */
+  background-color: #171a21;
+  /* background: linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(64, 62, 62, 1) 100%
+  ); */
+  color: #fafafa;
+}
+
+.display-1 {
+  font-size: calc(2.75rem + 4.5vw) !important;
+  font-weight: 400 !important;
+}
+
+.title {
+  padding-top: 2em;
+}
+
+.continueBtn {
+  background-color: #e94f37;
+  color: #fafafa;
+  border-radius: 40px;
+  font-size: 3vh;
+  color: rgba(255, 255, 255, 1);
+  box-shadow: 0 2px 7px #e94f37;
+  min-width: 10em;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.btnContainer {
+  position: absolute;
+  bottom: 0;
+  padding-bottom: 3em;
+  padding-left: 2em;
+  padding-right: 2em;
+  width: 100%;
+}
+
+.droneimg {
+  padding-top: 10em;
+}
+
+.droneimg2 {
+  padding-top: 0.5em;
+  padding-bottom: 1em;
+}
+
+.dronename {
+  font-weight: 400 !important;
+  font-size: 4vh;
+}
+
+.fa-battery-full {
+  color: #5bc236;
+}
+
+.batteryIndicator,
+.batteryPercentage {
+  /* display: inline-block; */
+  float: left;
+  padding: 0.5em;
+  font-size: 2vh;
+  font-weight: 400 !important;
+}
+
+.center {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.destinationEntry {
+  padding-right: 3em;
+  padding-left: 3em;
+}

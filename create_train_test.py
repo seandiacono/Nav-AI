@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 import cv2
 
-dataset = np.load('dataset_15Fov.npy', allow_pickle=True)
+dataset = np.load('dataset_depth.npy', allow_pickle=True)
 
 images = []
 labels = []
@@ -21,11 +21,13 @@ train_imgs, test_imgs, train_labels, test_labels = train_test_split(
 
 i = 0
 for img in train_imgs:
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     cv2.imwrite("data/train/img_"+str(i)+".png", img)
     i += 1
 
 i = 0
 for img in test_imgs:
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     cv2.imwrite("data/val/img_"+str(i)+".png", img)
     i += 1
 

@@ -4,11 +4,13 @@ import os
 
 directories = []
 
-directory1 = 'data/bottomCamDataset/'
-directory2 = 'data/streetsDataset/'
+# directory1 = 'data/bottomCamDataset/'
+# directory2 = 'data/streetsDataset/'
+directory3 = 'data/depthDataset/'
 
-directories.append(directory1)
-directories.append(directory2)
+directories.append(directory3)
+# directories.append(directory1)
+# directories.append(directory2)
 
 training_data = []
 
@@ -20,8 +22,8 @@ for directory in directories:
         try:
             height, width, _ = img.shape
 
-            new_height = 128
-            new_width = 128
+            new_height = 64
+            new_width = 64
 
             upper_left = (int((width - new_width) // 2),
                           int((height - new_height) // 2))
@@ -31,13 +33,14 @@ for directory in directories:
             img = img[upper_left[1]: bottom_right[1],
                       upper_left[0]: bottom_right[0]]
 
-            img = cv2.resize(img, (128, 128))
+            img = cv2.resize(img, (64, 64))
+            img2show = cv2.resize(img, (128, 128))
         except:
             print(directory + image)
             break
 
         output = 0
-        cv2.imshow('image', img)
+        cv2.imshow('image', img2show)
         cv2.moveWindow('image', 200, 200)
         key = cv2.waitKey(0)
         if key & 0xFF == ord('y'):
@@ -55,8 +58,8 @@ for directory in directories:
         if(i % 100 == 0):
             print("Image: " + str(i))
             print("Saving to File")
-            np.save("dataset_big.npy", training_data)
+            np.save("dataset_depth.npy", training_data)
         i += 1
 
 print(len(training_data))
-np.save("dataset_big.npy", training_data)
+np.save("dataset_depth.npy", training_data)

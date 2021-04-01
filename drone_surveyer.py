@@ -81,7 +81,7 @@ class SurveyNavigator:
         thread.join()
         images = que.get()
         for i in range(0, len(images)):
-            airsim.write_file('data/bottomCamDataset/img_'+str(i)+'.png',
+            airsim.write_file('data/depthDataset/img_'+str(i)+'.png',
                               images[i])
         # except:
         #     errorType, value, traceback = sys.exc_info()
@@ -108,13 +108,13 @@ if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser(
         "Usage: survey boxsize stripewidth altitude")
     arg_parser.add_argument("--size", type=float,
-                            help="size of the box to survey", default=250)
+                            help="size of the box to survey", default=225)
     arg_parser.add_argument("--stripewidth", type=float,
-                            help="stripe width of survey (in meters)", default=5)
+                            help="stripe width of survey (in meters)", default=15)
     arg_parser.add_argument("--altitude", type=float,
-                            help="altitude of survey (in positive meters)", default=40)
+                            help="altitude of survey (in positive meters)", default=30)
     arg_parser.add_argument(
-        "--speed", type=float, help="speed of survey (in meters/second)", default=2)
+        "--speed", type=float, help="speed of survey (in meters/second)", default=1)
     args = arg_parser.parse_args(args)
     nav = SurveyNavigator(args)
     nav.start()

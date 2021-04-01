@@ -20,15 +20,15 @@ client.moveToPositionAsync(30, 30, -40, 5)
 
 while True:
     img = airsim.string_to_uint8_array(
-        client.simGetImage("bottom_center", airsim.ImageType.Scene))
+        client.simGetImage("bottom_center", airsim.ImageType.DepthVis))
 
     img = cv2.imdecode(img, cv2.IMREAD_UNCHANGED)
     cv2.imshow("img", img)
 
     height, width, _ = img.shape
 
-    new_height = 64
-    new_width = 64
+    new_height = 128
+    new_width = 128
 
     upper_left = (int((width - new_width) // 2),
                   int((height - new_height) // 2))

@@ -11,9 +11,9 @@ def image_capture(stop):
     while True:
         print("Image: " + str(i))
         image = client.simGetImage(
-            "bottom_center", airsim.ImageType.Scene)
+            "bottom_center", airsim.ImageType.DepthVis)
         images.append(image)
         i = i + 1
         if stop():
             return images
-        time.sleep(1)
+        time.sleep(0.5)
