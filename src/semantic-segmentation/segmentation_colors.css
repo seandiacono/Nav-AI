@@ -1,0 +1,91 @@
+unlabeled {
+  color: rgb(0, 0, 0);
+}
+
+pavedarea {
+  color: rgb(128, 64, 128);
+}
+
+dirt {
+  color: rgb(130, 76, 0);
+}
+
+grass {
+  color: rgb(0, 102, 0);
+}
+
+gravel {
+  color: rgb(112, 103, 87);
+}
+
+water {
+  color: rgb(28, 42, 168);
+}
+
+rocks {
+  color: rgb(48, 41, 30);
+}
+
+pool {
+  color: rgb(0, 50, 89);
+}
+
+vegetation {
+  color: rgb(107, 142, 35);
+}
+
+roof {
+    color: rgb(70, 70, 70);
+}
+
+wall {
+    color: rgb(102, 102, 156);
+}
+
+window {
+    color: rgb(254, 228, 12);
+}
+
+door {
+    color: rgb(254, 148, 12);
+}
+
+fence {
+    color: rgb(190, 153, 153);
+}
+
+fencepole {
+    color: rgb(153, 153, 153);
+}
+
+person {
+    color: rgb(255, 22, 96);
+}
+
+dog {
+    color: rgb(102, 51, 0);
+}
+
+car {
+    color: rgb(9, 143, 150);
+}
+
+bicycle {
+    color: rgb(119, 11, 32);
+}
+
+tree {
+    color: rgb(51, 51, 0);
+}
+
+baldtree {
+    color: rgb(190, 250, 190);
+}
+
+armarker {
+    color: rgb(112, 150, 146);
+}
+
+obstacle {
+    color: rgb(2, 135, 115);
+}
