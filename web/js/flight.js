@@ -7,6 +7,7 @@ $(setInterval(function() {
     requestUrl = Url + "get_trip_details";
 
     if (!arrived){
+        console.log(arrived);
         $.ajax
         ({
             type: "GET",
@@ -17,6 +18,7 @@ $(setInterval(function() {
                 progress = res['progress'];
                 time = res['time_left'];
                 status = res['status'];
+                image = res['image'];
 
                 var d = new Date();
                 d.setSeconds(d.getSeconds() + time);
@@ -28,6 +30,7 @@ $(setInterval(function() {
                 $('#time-left').html(time + " SEC");
                 $('#current-action').html("Current Action: " + status);
                 $('#eta').html("ETA: " + hour +":" + minutes);
+                $('#stream').attr("src","data:image/jpeg;base64, " + image);
 
                 if(progress == 100){
                     arrived = true;
@@ -38,4 +41,4 @@ $(setInterval(function() {
             }
         });
     }
-}, 1000));
+}, 500));

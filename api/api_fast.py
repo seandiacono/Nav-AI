@@ -39,10 +39,22 @@ class DroneController(BaseModel):
         if (prog_percentage > 95):
             client.moveByVelocityAsync(0, 0, 0, 1).join()
             status = "Arrived"
+            prog_percentage = 100
 
         time = current_dist / self.velocity
 
-        return {"progress": prog_percentage, "time_left": int(time), "status": status}
+        CAMERA_NAME = '0'
+        IMAGE_TYPE = airsim.ImageType.Scene
+        DECODE_EXTENSION = '.jpeg'
+
+        response_image = client.simGetImage(CAMERA_NAME, IMAGE_TYPE)
+        np_response_image = np.asarray(
+            bytearray(response_image), dtype="uint8")
+        decoded_frame = cv2.imdecode(np_response_image, cv2.IMREAD_COLOR)
+        _, encoded_img = cv2.imencode(DECODE_EXTENSION, decoded_frame)
+        encoded_img = base64.b64encode(encoded_img)
+
+        return {"progress": prog_percentage, "time_left": int(time), "status": status, "image": encoded_img}
 
     def navigate(self):
 
