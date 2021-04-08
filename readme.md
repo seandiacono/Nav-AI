@@ -1,8 +1,5 @@
 <p align="center">
-    <h1 align="center">Nav AI</h1>
-</p>
-<p align="center">
-	<h2 align="center">🧠💻🚚</h2>
+    <h1 align="center">Nav AI 🧠💻</h1>
 </p>
 
 ## About
