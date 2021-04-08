@@ -20,6 +20,7 @@
       src="https://kit.fontawesome.com/8639625916.js"
       crossorigin="anonymous"
     ></script>
+    <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
     <link rel="stylesheet" href="css/style.css" />
 
     <title>NavAI</title>
@@ -39,14 +40,16 @@
       </div>
 
       <div class="destinationEntry">
-        <form>
+        <form name="destinationForm" id="destination_form">
           <div class="mb-3">
             <label for="xCoord" class="form-label">X-Coordinate</label>
             <input
               type="number"
               class="form-control"
               id="xCoord"
+              name="xCoord"
               placeholder="30"
+              required
             />
           </div>
           <div class="mb-3">
@@ -55,7 +58,9 @@
               type="number"
               class="form-control"
               id="yCoord"
+              name="yCoord"
               placeholder="30"
+              required
             />
           </div>
           <div class="mb-3">
@@ -64,7 +69,9 @@
               type="number"
               class="form-control"
               id="altitude"
+              name="altitude"
               placeholder="-30"
+              required
             />
           </div>
           <div class="mb-3">
@@ -73,7 +80,9 @@
               type="number"
               class="form-control"
               id="velocity"
+              name="velocity"
               placeholder="2"
+              required
             />
           </div>
           <div class="text-center">
@@ -84,5 +93,46 @@
         </form>
       </div>
     </div>
+
+    <div
+      class="modal fade"
+      id="loadingModal"
+      tabindex="-1"
+      aria-labelledby="loadingModalLabel"
+      aria-hidden="true"
+    >
+      <div
+        class="modal-dialog modal-dialog-centered"
+        style="width: 300px; margin: auto"
+      >
+        <div class="modal-content">
+          <div class="container text-center animationContainer">
+            <h2>Drone Initialising</h2>
+            <p>Please Wait</p>
+            <div class="row">
+              <div class="col-md-8 mx-auto">
+                <lottie-player
+                  src="https://assets10.lottiefiles.com/packages/lf20_2rqike9d.json"
+                  background="transparent"
+                  speed="1"
+                  style="width: 250px; height: 250px"
+                  loop
+                  autoplay
+                ></lottie-player>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf"
+      crossorigin="anonymous"
+    ></script>
+    <!-- <script src="js/navigator.js"></script> -->
+    <script src="js/data.js"></script>
   </body>
 </html>

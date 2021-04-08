@@ -27,12 +27,12 @@ body {
 }
 
 .continueBtn {
-  background-color: #e94f37;
+  background-color: #f4442e;
   color: #fafafa;
   border-radius: 40px;
   font-size: 3vh;
   color: rgba(255, 255, 255, 1);
-  box-shadow: 0 2px 7px #e94f37;
+  box-shadow: 0 2px 7px #f4442e;
   min-width: 10em;
 }
 
@@ -87,4 +87,92 @@ body {
 .destinationEntry {
   padding-right: 3em;
   padding-left: 3em;
+}
+
+.bottom-sheet {
+  color: #fafafa;
+  background: #171a21;
+  height: 25%;
+  width: 100%;
+
+  position: fixed;
+  bottom: 0;
+  left: 0;
+
+  border-radius: 30px 30px 0px 0px;
+}
+
+.progress-bar {
+  background-color: #279c4e;
+  font-size: 2vh;
+}
+
+.progress {
+  height: 2em;
+}
+
+.animationContainer {
+  padding-top: 2em;
+  padding-bottom: 0.25em;
+}
+
+lottie-player {
+  margin: 0 auto;
+}
+
+#stream {
+  min-height: 100%;
+
+  width: 100%;
+  height: auto;
+
+  position: fixed;
+  top: 0;
+  left: 0;
+
+  object-fit: cover;
+
+  filter: brightness(90%);
+}
+
+#video-container {
+  min-height: 100%;
+
+  width: 100%;
+  height: auto;
+
+  padding: 0px !important;
+  margin: 0px imp !important;
+}
+
+#drone-info {
+  padding-top: 1em;
+  padding-left: 1em;
+}
+
+#drone-thumbnail {
+  width: 9em;
+  height: auto;
+}
+
+#drone-name {
+  margin-top: 1em;
+}
+
+#drone-progress {
+  margin-top: 2em;
+  padding-left: 1em;
+}
+
+#journey-info {
+  margin-top: 1em;
+  padding-left: 1em;
+}
+
+#eta {
+  padding-top: 0.25em;
+}
+
+#loadingModal {
+  color: #171a21;
 }
