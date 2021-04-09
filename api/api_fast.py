@@ -8,6 +8,12 @@ import numpy as np
 import cv2
 import base64
 from scipy.spatial import distance
+import torch
+from torchvision import transforms as T
+import segmentation_models_pytorch as smp
+from PIL import Image
+from scipy import stats
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 app = FastAPI()
 
@@ -24,7 +30,101 @@ class DroneController(BaseModel):
     velocity: float = None
 
     progress: Optional[int] = 0
-    dist_to_dest: Optional[float] = 0
+    dist_to_dest: Optional[float] = 0.0
+
+    model: Optional[smp.Unet] = smp.Unet('mobilenet_v2', encoder_weights='imagenet', classes=23,
+                                         activation=None, encoder_depth=5, decoder_channels=[256, 128, 64, 32, 16])
+
+    model = torch.load('../models/Unet-Mobilenet.pt')
+
+    def predict_image(self, model, image, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]):
+        model.eval()
+        t = T.Compose([T.ToTensor(), T.Normalize(mean, std)])
+        image = t(image)
+        model.to(device)
+        image = image.to(device)
+        with torch.no_grad():
+            image = image.unsqueeze(0)
+            output = model(image)
+            # masked = torch.argmax(output, dim=1)
+            # masked = masked.cpu().squeeze(0)
+        return output
+
+    def decode_segmap(self, image, nc=23):
+
+        label_colors = np.array([(0, 0, 0),  # 0=unlabeled
+                                 # 1=paved-area, 2=dirt, 3=bird, 4=grass, 5=gravel
+                                 (128, 64, 128), (130, 76, 0), (0,
+                                                                102, 0), (112, 103, 87), (28, 42, 168),
+                                 # 6=water, 7=rocks, 8=pool, 9=vegetation, 10=roof
+                                 (48, 41, 30), (0, 50, 89), (107,
+                                                             142, 35), (70, 70, 70), (102, 102, 156),
+                                 # 11=wall, 12=window, 13=door, 14=fence, 15=fence-pole
+                                 (254, 228, 12), (254, 148, 12), (190, 153,
+                                                                  153), (153, 153, 153), (255, 22, 96),
+                                 # 16=person, 17=dog, 18=car, 19=bicycle, 20=tree, 21=bald-tree, 22=ar-marker, 23=obstacle
+                                 (102, 51, 0), (9, 143, 150), (119, 11, 32), (51, 51, 0), (190, 250, 190), (112, 150, 146), (2, 135, 115)])
+
+        r = np.zeros_like(image).astype(np.uint8)
+        g = np.zeros_like(image).astype(np.uint8)
+        b = np.zeros_like(image).astype(np.uint8)
+
+        for l in range(0, nc):
+            idx = image == l
+            r[idx] = label_colors[l, 0]
+            g[idx] = label_colors[l, 1]
+            b[idx] = label_colors[l, 2]
+
+        rgb = np.stack([r, g, b], axis=2)
+        return rgb
+
+    def bincount_app(self, a):
+        a2D = a.reshape(-1, a.shape[-1])
+        col_range = (256, 256, 256)  # generically : a2D.max(0)+1
+        a1D = np.ravel_multi_index(a2D.T, col_range)
+        return np.unravel_index(np.bincount(a1D).argmax(), col_range)
+
+    def landing(self):
+        img = airsim.string_to_uint8_array(
+            client.simGetImage("bottom_center", airsim.ImageType.Scene))
+
+        img = cv2.imdecode(img, cv2.IMREAD_UNCHANGED)
+        img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+        img = cv2.resize(img, (1056, 704))
+
+        pred_mask = self.predict_image(self.model, img)
+        pred_mask = torch.argmax(
+            pred_mask.squeeze(), dim=0).detach().cpu().numpy()
+
+        pred_mask = self.decode_segmap(pred_mask)
+
+        # cv2.imshow("mask", pred_mask)
+        # cv2.waitKey(1)
+
+        height, width, _ = img.shape
+
+        new_height = 64
+        new_width = 64
+
+        upper_left = (int((width - new_width) // 2),
+                      int((height - new_height) // 2))
+        bottom_right = (int((width + new_width) // 2),
+                        int((height + new_height) // 2))
+
+        img = pred_mask[upper_left[1]: bottom_right[1],
+                        upper_left[0]: bottom_right[0]]
+
+        img = np.asarray([img])
+
+        mode = self.bincount_app(img)
+
+        if mode == (128, 64, 128):
+            client.landAsync()
+            landed = True
+        else:
+            d = None
+            # x -= 1
+            # client.moveToPositionAsync(x, y, -30, 0.5).join()
 
     def get_status(self):
         position = client.simGetVehiclePose().position
