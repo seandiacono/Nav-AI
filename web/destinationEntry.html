@@ -20,7 +20,6 @@
       src="https://kit.fontawesome.com/8639625916.js"
       crossorigin="anonymous"
     ></script>
-    <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
     <link rel="stylesheet" href="css/style.css" />
 
     <title>NavAI</title>
@@ -64,7 +63,9 @@
             />
           </div>
           <div class="mb-3">
-            <label for="altitude" class="form-label">Cruising Altitude</label>
+            <label for="altitude" class="form-label"
+              >Cruising Altitude (m)</label
+            >
             <input
               type="number"
               class="form-control"
@@ -75,7 +76,9 @@
             />
           </div>
           <div class="mb-3">
-            <label for="velocity" class="form-label">Cruising Velocity</label>
+            <label for="velocity" class="form-label"
+              >Cruising Velocity (m/s)</label
+            >
             <input
               type="number"
               class="form-control"
@@ -91,38 +94,6 @@
             </button>
           </div>
         </form>
-      </div>
-    </div>
-
-    <div
-      class="modal fade"
-      id="loadingModal"
-      tabindex="-1"
-      aria-labelledby="loadingModalLabel"
-      aria-hidden="true"
-    >
-      <div
-        class="modal-dialog modal-dialog-centered"
-        style="width: 300px; margin: auto"
-      >
-        <div class="modal-content">
-          <div class="container text-center animationContainer">
-            <h2>Drone Initialising</h2>
-            <p>Please Wait</p>
-            <div class="row">
-              <div class="col-md-8 mx-auto">
-                <lottie-player
-                  src="https://assets10.lottiefiles.com/packages/lf20_2rqike9d.json"
-                  background="transparent"
-                  speed="1"
-                  style="width: 250px; height: 250px"
-                  loop
-                  autoplay
-                ></lottie-player>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
 

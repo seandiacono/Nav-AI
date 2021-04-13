@@ -173,6 +173,7 @@ lottie-player {
   padding-top: 0.25em;
 }
 
-#loadingModal {
+#loadingModal,
+#landingModal {
   color: #171a21;
 }

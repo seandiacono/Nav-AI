@@ -13,6 +13,7 @@ from torchvision import transforms as T
 import segmentation_models_pytorch as smp
 from PIL import Image
 from scipy import stats
+import threading
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 app = FastAPI()
@@ -31,11 +32,10 @@ class DroneController(BaseModel):
 
     progress: Optional[int] = 0
     dist_to_dest: Optional[float] = 0.0
-
-    model: Optional[smp.Unet] = smp.Unet('mobilenet_v2', encoder_weights='imagenet', classes=23,
-                                         activation=None, encoder_depth=5, decoder_channels=[256, 128, 64, 32, 16])
-
-    model = torch.load('../models/Unet-Mobilenet.pt')
+    arrived: Optional[bool] = False
+    status: Optional[Any] = "Idle"
+    time: Optional[float] = 0.0
+    encoded_img: Optional[Any] = ""
 
     def predict_image(self, model, image, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]):
         model.eval()
@@ -85,86 +85,72 @@ class DroneController(BaseModel):
         return np.unravel_index(np.bincount(a1D).argmax(), col_range)
 
     def landing(self):
-        img = airsim.string_to_uint8_array(
-            client.simGetImage("bottom_center", airsim.ImageType.Scene))
+        global client
 
-        img = cv2.imdecode(img, cv2.IMREAD_UNCHANGED)
-        img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
-        img = cv2.resize(img, (1056, 704))
+        landed = False
 
-        pred_mask = self.predict_image(self.model, img)
-        pred_mask = torch.argmax(
-            pred_mask.squeeze(), dim=0).detach().cpu().numpy()
+        newX = self.xCoord
+        newY = self.yCoord
+        while not landed:
+            img = airsim.string_to_uint8_array(
+                client.simGetImage("bottom_center", airsim.ImageType.Scene))
 
-        pred_mask = self.decode_segmap(pred_mask)
+            img = cv2.imdecode(img, cv2.IMREAD_UNCHANGED)
+            img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+            img = cv2.resize(img, (1056, 704))
 
-        # cv2.imshow("mask", pred_mask)
-        # cv2.waitKey(1)
+            pred_mask = self.predict_image(model, img)
+            pred_mask = torch.argmax(
+                pred_mask.squeeze(), dim=0).detach().cpu().numpy()
 
-        height, width, _ = img.shape
+            pred_mask = self.decode_segmap(pred_mask)
 
-        new_height = 64
-        new_width = 64
+            height, width, _ = img.shape
 
-        upper_left = (int((width - new_width) // 2),
-                      int((height - new_height) // 2))
-        bottom_right = (int((width + new_width) // 2),
-                        int((height + new_height) // 2))
+            new_height = 64
+            new_width = 64
 
-        img = pred_mask[upper_left[1]: bottom_right[1],
-                        upper_left[0]: bottom_right[0]]
+            upper_left = (int((width - new_width) // 2),
+                          int((height - new_height) // 2))
+            bottom_right = (int((width + new_width) // 2),
+                            int((height + new_height) // 2))
 
-        img = np.asarray([img])
+            img = pred_mask[upper_left[1]: bottom_right[1],
+                            upper_left[0]: bottom_right[0]]
 
-        mode = self.bincount_app(img)
+            img = np.asarray([img])
 
-        if mode == (128, 64, 128):
-            client.landAsync()
-            landed = True
-        else:
-            d = None
-            # x -= 1
-            # client.moveToPositionAsync(x, y, -30, 0.5).join()
+            mode = self.bincount_app(img)
+
+            if mode == (128, 64, 128):
+                # cv2.imwrite("land_mask.png", pred_mask)
+                client.moveToPositionAsync(
+                    self.xCoord, self.yCoord, -5, 1).join()
+                client.landAsync().join()
+                self.status = "Landed"
+                landed = True
+                return
+            else:
+                newX += 0.5
+                newY += 0.5
+                client.moveToPositionAsync(
+                    newX, newY, self.altitude, 0.5).join()
 
     def get_status(self):
-        position = client.simGetVehiclePose().position
-
-        current_dist = distance.euclidean([position.x_val, position.y_val, position.z_val], [
-            self.xCoord, self.yCoord, self.altitude])
-
-        prog_percentage = int(100-((current_dist/self.dist_to_dest) * 100))
-
-        status = "Flying"
-
-        if (prog_percentage > 95):
-            client.moveByVelocityAsync(0, 0, 0, 1).join()
-            status = "Arrived"
-            prog_percentage = 100
-
-        time = current_dist / self.velocity
-
-        CAMERA_NAME = '0'
-        IMAGE_TYPE = airsim.ImageType.Scene
-        DECODE_EXTENSION = '.jpeg'
-
-        response_image = client.simGetImage(CAMERA_NAME, IMAGE_TYPE)
-        np_response_image = np.asarray(
-            bytearray(response_image), dtype="uint8")
-        decoded_frame = cv2.imdecode(np_response_image, cv2.IMREAD_COLOR)
-        _, encoded_img = cv2.imencode(DECODE_EXTENSION, decoded_frame)
-        encoded_img = base64.b64encode(encoded_img)
-
-        return {"progress": prog_percentage, "time_left": int(time), "status": status, "image": encoded_img}
+        return {"progress": self.progress, "time_left": int(self.time), "status": self.status, "image": self.encoded_img}
 
     def navigate(self):
 
+        self.status = "Initialising"
+
+        global client
+
+        self.arrived = False
+
         client.armDisarm(True)
-        # take off
-        print("taking off")
         client.takeoffAsync()
 
         # rise to altitude
-        print(self.altitude)
         client.enableApiControl(True)
         client.moveToPositionAsync(0, 0, self.altitude, 2).join()
 
@@ -174,8 +160,90 @@ class DroneController(BaseModel):
         client.moveToPositionAsync(
             self.xCoord, self.yCoord, self.altitude, self.velocity, yaw_mode=airsim.YawMode(is_rate=False, yaw_or_rate=0), drivetrain=airsim.DrivetrainType.ForwardOnly, lookahead=20)
 
+        CAMERA_NAME = '0'
+        IMAGE_TYPE = airsim.ImageType.Scene
+        DECODE_EXTENSION = '.jpeg'
+
+        self.status = "Flying"
+
+        while not self.arrived:
+            position = client.simGetVehiclePose().position
+
+            current_dist = distance.euclidean([position.x_val, position.y_val, position.z_val], [
+                self.xCoord, self.yCoord, self.altitude])
+
+            self.progress = int(100-((current_dist/self.dist_to_dest) * 100))
+
+            self.time = current_dist / self.velocity
+
+            response_image = client.simGetImage(CAMERA_NAME, IMAGE_TYPE)
+            np_response_image = np.asarray(
+                bytearray(response_image), dtype="uint8")
+            decoded_frame = cv2.imdecode(np_response_image, cv2.IMREAD_COLOR)
+            _, self.encoded_img = cv2.imencode(DECODE_EXTENSION, decoded_frame)
+            self.encoded_img = base64.b64encode(self.encoded_img)
+
+            if (self.progress > 95):
+                client.moveByVelocityAsync(0, 0, 0, 1).join()
+                self.status = "Landing"
+                self.arrived = True
+                self.progress = 100
+                landing_thread.start()
+
+        landing_thread.join()
+
+        home = False
+
+        self.dist_to_dest = distance.euclidean(
+            [self.xCoord, self.yCoord, self.altitude], [0, 0, self.altitude])
+
+        self.status = "Initialising"
+
+        client.moveToZAsync(self.altitude, 2).join()
+        client.moveToPositionAsync(
+            0, 0, self.altitude, self.velocity, yaw_mode=airsim.YawMode(is_rate=False, yaw_or_rate=0), drivetrain=airsim.DrivetrainType.ForwardOnly, lookahead=20)
+
+        self.status = "Going Home"
+
+        while not home:
+            position = client.simGetVehiclePose().position
+
+            current_dist = distance.euclidean([position.x_val, position.y_val, position.z_val], [
+                0, 0, self.altitude])
+
+            self.progress = int(100-((current_dist/self.dist_to_dest) * 100))
+
+            self.time = current_dist / self.velocity
+
+            response_image = client.simGetImage(CAMERA_NAME, IMAGE_TYPE)
+            np_response_image = np.asarray(
+                bytearray(response_image), dtype="uint8")
+            decoded_frame = cv2.imdecode(np_response_image, cv2.IMREAD_COLOR)
+            _, self.encoded_img = cv2.imencode(DECODE_EXTENSION, decoded_frame)
+            self.encoded_img = base64.b64encode(self.encoded_img)
+
+            if (self.progress > 95):
+                client.moveByVelocityAsync(0, 0, 0, 1).join()
+                self.status = "Landing"
+                self.progress = 100
+                home = True
+
+        client.moveToZAsync(-5, 1).join()
+        client.landAsync().join()
+        self.status = "Home"
+        return
+
 
 drone_controller = DroneController()
+
+model = smp.Unet('mobilenet_v2', encoder_weights='imagenet', classes=23,
+                 activation=None, encoder_depth=5, decoder_channels=[256, 128, 64, 32, 16])
+
+model = torch.load('../models/Unet-Mobilenet.pt')
+
+landing_thread = threading.Thread(target=drone_controller.landing)
+
+navigation_thread = threading.Thread(target=drone_controller.navigate)
 
 app.add_middleware(
     CORSMiddleware,
@@ -211,10 +279,10 @@ async def set_flight_params(drone_controller_temp: DroneController):
 
     drone_controller.xCoord = drone_controller_temp.xCoord
     drone_controller.yCoord = drone_controller_temp.yCoord
-    drone_controller.altitude = drone_controller_temp.altitude
+    drone_controller.altitude = 0 - drone_controller_temp.altitude
     drone_controller.velocity = drone_controller_temp.velocity
 
-    drone_controller.navigate()
+    navigation_thread.start()
 
     status = {"status": "OK"}
 

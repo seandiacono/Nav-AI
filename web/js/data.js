@@ -31,9 +31,6 @@ $('#destination_form').on("submit", function(e) {
             "altitude": altitude,
             "velocity": velocity
         }),
-        beforeSend: function(){
-            $('#loadingModal').modal('show');
-        },
         success: function () {
             window.location.href = "videostream.html";
         },
