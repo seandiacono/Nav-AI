@@ -9,6 +9,7 @@ import os
 import segmentation_models_pytorch as smp
 from PIL import Image
 from scipy import stats
+from collections import Counter
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
@@ -62,10 +63,27 @@ def bincount_app(a):
     return np.unravel_index(np.bincount(a1D).argmax(), col_range)
 
 
-model = smp.Unet('mobilenet_v2', encoder_weights='imagenet', classes=23,
-                 activation=None, encoder_depth=5, decoder_channels=[256, 128, 64, 32, 16])
+def percent_landing_zone(img):
+    unique, counts = np.unique(
+        img.reshape(-1, img.shape[2]), axis=0, return_counts=True)
 
-model = torch.load('models/Unet-Mobilenet.pt')
+    tuples = [tuple(x) for x in unique]
+
+    total = sum(counts)
+
+    percentages = [(x/total)*100 for x in counts]
+
+    dict_percentages = dict(zip(tuples, percentages))
+
+    try:
+        landing_zone_percent = dict_percentages[(128, 64, 128)]
+    except:
+        landing_zone_percent = 0.0
+
+    return landing_zone_percent
+
+
+model = torch.load('models/DeepLabV3Plus-MobileNet.pt')
 
 # connect to the AirSim simulator
 client = airsim.MultirotorClient()
@@ -78,13 +96,29 @@ print("TAKING OFF")
 client.takeoffAsync()
 print("TAKEOFF COMPLETE")
 print("FLYING TO 40 ALTITUDE")
-# client.moveToPositionAsync(0, 0, -30, 5)
+client.moveToPositionAsync(0, 0, -30, 5).join()
+# orientation = client.simGetVehiclePose().orientation
+
+# print(orientation)
 print("FLYING TO DESTINATION")
 
-x = -55
-y = 23
+x = 28
+y = -18
 
-client.moveToPositionAsync(x, y, -30, 2).join()
+destination_x = x
+destination_y = y
+
+client.moveToPositionAsync(
+    x, y, -30, 2, yaw_mode=airsim.YawMode(is_rate=False, yaw_or_rate=0), drivetrain=airsim.DrivetrainType.ForwardOnly, lookahead=20)
+time.sleep(3)
+
+
+client.moveToPositionAsync(
+    x, y, -30, 2).join()
+
+client.moveByVelocityAsync(0, 0, 0, 1).join()
+
+client.moveByAngleZAsync(0, 0, -30, 0.0, 5).join()
 
 landed = False
 mean = [0.485, 0.456, 0.406]
@@ -99,6 +133,8 @@ while not landed:
     img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
     img = cv2.resize(img, (1056, 704))
 
+    img2show = img.copy()
+
     pred_mask = predict_image(model, img)
     pred_mask = torch.argmax(pred_mask.squeeze(), dim=0).detach().cpu().numpy()
 
@@ -107,10 +143,13 @@ while not landed:
     cv2.imshow("mask", pred_mask)
     cv2.waitKey(1)
 
+    # cv2.imshow("img", img2show)
+    # cv2.waitKey(1)
+
     height, width, _ = img.shape
 
-    new_height = 64
-    new_width = 64
+    new_height = 100
+    new_width = 100
 
     upper_left = (int((width - new_width) // 2),
                   int((height - new_height) // 2))
@@ -118,29 +157,17 @@ while not landed:
                     int((height + new_height) // 2))
 
     img = pred_mask[upper_left[1]: bottom_right[1],
-                    upper_left[0]: bottom_right[0]]
+                    upper_left[0]: bottom_right[0]].copy()
 
-    img = np.asarray([img])
+    cv2.imshow("cropped", img)
+    cv2.waitKey(1)
 
-    mode = bincount_app(img)
+    landing_zone_percent = percent_landing_zone(img)
 
-    print(mode)
-    if mode == (128, 64, 128):
-        print("LANDING")
-        client.moveToPositionAsync(x, y, 1, 2).join()
-        landed = True
-    else:
-        print("NOT SAFE TO LAND...MOVING TO NEW POSITION")
-        x -= 1
-        print(x)
-        client.moveToPositionAsync(x, y, -30, 0.5).join()
-        print("CHECKING NEW SPOT")
-    # masked_img = cv2.addWeighted(img, 0.75, pred_mask, 0.25, 0)
-
-    # cv2.imshow("img", masked_img)
+    print(landing_zone_percent)
 
     # fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(20, 10))
-    # ax1.imshow(img)
+    # ax1.imshow(img2show)
     # ax1.set_title('Picture')
 
     # ax2.imshow(pred_mask)
@@ -154,12 +181,57 @@ while not landed:
 
     # plt.show()
 
+    if landing_zone_percent > 95.0:
+        print("LANDING")
+        client.moveToPositionAsync(destination_x, destination_y, 1, 2).join()
+        landed = True
+    else:
+        print("NOT SAFE TO LAND...MOVING TO NEW POSITION")
+        height, width, _ = pred_mask.shape
+
+        bottom_left = pred_mask[(height // 2):height, 0:(width // 2)].copy()
+        bottom_right = pred_mask[(height // 2):height,
+                                 (width // 2):width].copy()
+        top_left = pred_mask[0:(height // 2), 0:(width // 2)].copy()
+        top_right = pred_mask[0:(height // 2), (width // 2):width].copy()
+
+        cv2.imshow("tl", top_left)
+        cv2.imshow("tr", top_right)
+        cv2.imshow("bl", bottom_left)
+        cv2.imshow("br", bottom_right)
+        cv2.waitKey(1)
+        top_left_percent = percent_landing_zone(top_left)
+        top_right_percent = percent_landing_zone(top_right)
+        bottom_left_percent = percent_landing_zone(bottom_left)
+        bottom_right_percent = percent_landing_zone(bottom_right)
+
+        if top_left_percent > max(top_right_percent, bottom_left_percent, bottom_right_percent):
+            print("Moving Top left")
+            destination_x += 2
+            destination_y += -2
+        elif top_right_percent > max(top_left_percent, bottom_left_percent, bottom_right_percent):
+            print("Moving Top right")
+            destination_x += 2
+            destination_y += 2
+        elif bottom_left_percent > max(top_left_percent, top_right_percent, bottom_right_percent):
+            print("Moving bottom left")
+            destination_x += -2
+            destination_y += -2
+        elif bottom_right_percent > max(top_left_percent, top_right_percent, bottom_left_percent):
+            print("Moving bottom right")
+            destination_x += -2
+            destination_y += 2
+
+        client.moveToPositionAsync(
+            destination_x, destination_y, -30, 1).join()
+        client.moveByVelocityAsync(0, 0, 0, 1).join()
+        print("CHECKING NEW SPOT")
+    # masked_img = cv2.addWeighted(img, 0.75, pred_mask, 0.25, 0)
+
+    # cv2.imshow("img", masked_img)
+
     if cv2.waitKey(1) & 0xFF == ord('q'):
         client.cancelLastTask()
         client.moveByVelocityAsync(0, 0, 0, 1)
         client.hoverAsync()
         break
-
-
-client.armDisarm(False)
-client.enableApiControl(False)

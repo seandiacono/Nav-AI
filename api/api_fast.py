@@ -123,7 +123,8 @@ class DroneController(BaseModel):
             mode = self.bincount_app(img)
 
             if mode == (128, 64, 128):
-                # cv2.imwrite("land_mask.png", pred_mask)
+                cv2.imwrite("../land_mask.png", pred_mask)
+                client.moveByVelocityAsync(0, 0, 0, 2).join()
                 client.moveToPositionAsync(
                     self.xCoord, self.yCoord, -5, 1).join()
                 client.landAsync().join()
@@ -228,18 +229,24 @@ class DroneController(BaseModel):
                 self.progress = 100
                 home = True
 
-        client.moveToZAsync(-5, 1).join()
+        client.moveToZAsync(-3, 1).join()
         client.landAsync().join()
         self.status = "Home"
+
         return
 
 
 drone_controller = DroneController()
 
-model = smp.Unet('mobilenet_v2', encoder_weights='imagenet', classes=23,
-                 activation=None, encoder_depth=5, decoder_channels=[256, 128, 64, 32, 16])
+# model = smp.Unet('mobilenet_v2', encoder_weights='imagenet', classes=23,
+#                  activation=None, encoder_depth=5, decoder_channels=[256, 128, 64, 32, 16])
 
-model = torch.load('../models/Unet-Mobilenet.pt')
+# model = smp.DeepLabV3Plus(encoder_name='mobilenet_v2', encoder_weights='imagenet', classes=23,
+#                           activation=None, encoder_depth=5)
+
+# model = torch.load('../models/Unet-Mobilenet.pt')
+
+model = torch.load('../models/DeepLabV3Plus-Mobilenet.pt')
 
 landing_thread = threading.Thread(target=drone_controller.landing)
 

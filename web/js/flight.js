@@ -18,13 +18,11 @@ $(
           status = res["status"];
           image = res["image"];
 
-          if(image == "ready"){
-              return
-          }
-
           if(status == "Initialising"){
+            $('#landingModal').modal('hide');
             $('#loadingModal').modal('show');
           }else if(status == "Landing"){
+            $('#loadingModal').modal('hide');
             $('#landingModal').modal('show');
           }else{
             $('#loadingModal').modal('hide');
@@ -41,9 +39,13 @@ $(
             .css("width", progress + "%")
             .attr("aria-valuenow", progress);
           $("#time-left").html(time + " SEC");
-          $("#current-action").html("Current Action: " + status);
+          $("#current-action").html(status);
           $("#eta").html("ETA: " + hour + ":" + minutes);
-          $("#stream").attr("src", "data:image/jpeg;base64, " + image);
+          if(image == ""){
+            $("#stream").attr("src", "assets/sample_img.png");
+          }else{
+            $("#stream").attr("src", "data:image/jpeg;base64, " + image);
+          }
 
           if (status == "Home") {
             window.location.href = "donePage.html";
