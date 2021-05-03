@@ -1,69 +1,72 @@
 from __future__ import print_function
-import airsim
-from numpy.lib.function_base import average
-import tensorflow as tf
-from tensorflow import keras
-import cv2
-import numpy as np
+import sys
+sys.path.insert(
+    1, 'C:/Users/seand/OneDrive/Documents/University/Autonomous Drone Navigation/Implementation/AirSimAPI')
 import time
-from AdaBins.obstacle_avoidance import DepthFinder
+import numpy as np
+import cv2
+from tensorflow import keras
+import tensorflow as tf
+from numpy.lib.function_base import average
+import airsim
 import math
+from AdaBins.obstacle_avoidance import DepthFinder
 
 
 def navigation(x, y, z, vel):
     print('Flying to Desired Destination', end='\r')
     client.moveToPositionAsync(
-        x, y, z, vel, yaw_mode=airsim.YawMode(is_rate=False, yaw_or_rate=0), drivetrain=airsim.DrivetrainType.ForwardOnly, lookahead=20).join()
+        x, y, z, vel, yaw_mode=airsim.YawMode(is_rate=False, yaw_or_rate=0), drivetrain=airsim.DrivetrainType.ForwardOnly, lookahead=20)
 
-    # position = client.simGetVehiclePose().position
+    position = client.simGetVehiclePose().position
 
-    # actual_x = position.x_val
-    # actual_y = position.y_val
+    actual_x = position.x_val
+    actual_y = position.y_val
 
-    # while math.dist((actual_x, actual_y), (x, y)) > 1:
-    #     position = client.simGetVehiclePose().position
+    while math.dist((actual_x, actual_y), (x, y)) > 1:
+        position = client.simGetVehiclePose().position
 
-    #     actual_x = position.x_val
-    #     actual_y = position.y_val
+        actual_x = position.x_val
+        actual_y = position.y_val
 
-    # img = airsim.string_to_uint8_array(
-    #     client.simGetImage("front_center", airsim.ImageType.Scene))
+        img = airsim.string_to_uint8_array(
+            client.simGetImage("front_center", airsim.ImageType.Scene))
 
-    # img = cv2.imdecode(img, cv2.IMREAD_UNCHANGED)
+        img = cv2.imdecode(img, cv2.IMREAD_UNCHANGED)
 
-    # depth = depth_finder.get_depth_map(img)
-    # ret, thresh = cv2.threshold(
-    #     depth, 2500, np.amax(depth), cv2.THRESH_BINARY_INV)
+        depth = depth_finder.get_depth_map(img)
+        ret, thresh = cv2.threshold(
+            depth, 2500, np.amax(depth), cv2.THRESH_BINARY_INV)
 
-    # height, width = thresh.shape
+        height, width = thresh.shape
 
-    # upper_left = (width // 4, height // 4)
-    # bottom_right = (width * 3 // 4, height * 3 // 4)
+        upper_left = (width // 4, height // 4)
+        bottom_right = (width * 3 // 4, height * 3 // 4)
 
-    # crop_img = thresh[upper_left[1]: bottom_right[1] +
-    #                   1, upper_left[0]: bottom_right[0] + 1].copy()
+        crop_img = thresh[upper_left[1]: bottom_right[1] +
+                          1, upper_left[0]: bottom_right[0] + 1].copy()
 
-    # height, width = crop_img.shape
+        height, width = crop_img.shape
 
-    # crop_img = crop_img[height // 2:height, 0:width]
-    # average_depth = np.average(crop_img)
+        crop_img = crop_img[height // 2:height, 0:width]
+        average_depth = np.average(crop_img)
 
-    # if average_depth > 8500:
-    #     print("TOO CLOSE TO OBJECT - STOPPING AND HOVERING",
-    #           end='\r')
-    #     client.cancelLastTask()
-    #     client.moveByVelocityAsync(0, 0, 0, 1)
-    #     client.hoverAsync().join()
-    #     print("TAKING EVASIVE MANOUVER", end='\r')
-    #     obstacle_avoidance(crop_img)
-    #     client.moveToPositionAsync(
-    #         x, y, z, vel, yaw_mode=airsim.YawMode(is_rate=False, yaw_or_rate=0), drivetrain=airsim.DrivetrainType.ForwardOnly, lookahead=20)
+        if average_depth > 8500:
+            print("TOO CLOSE TO OBJECT - STOPPING AND HOVERING",
+                  end='\r')
+            client.cancelLastTask()
+            client.moveByVelocityAsync(0, 0, 0, 1)
+            client.hoverAsync().join()
+            print("TAKING EVASIVE MANOUVER", end='\r')
+            obstacle_avoidance(crop_img)
+            client.moveToPositionAsync(
+                x, y, z, vel, yaw_mode=airsim.YawMode(is_rate=False, yaw_or_rate=0), drivetrain=airsim.DrivetrainType.ForwardOnly, lookahead=20)
 
-    # cv2.imshow("crop_img", crop_img)
-    # cv2.imshow("est_depth", depth)
-    # if cv2.waitKey(1) & 0xFF == ord('q'):
-    #     cv2.destroyAllWindows()
-    #     break
+        cv2.imshow("crop_img", crop_img)
+        cv2.imshow("est_depth", depth)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            cv2.destroyAllWindows()
+            break
     print('Arrived at Desired Destination', end='\r')
     return True
 
@@ -88,64 +91,66 @@ def obstacle_avoidance(img):
 
 
 def land(x, y, z):
-    landed = False
 
-    while not landed:
-        img = airsim.string_to_uint8_array(
-            client.simGetImage("bottom_center", airsim.ImageType.Scene))
+    client.moveToPositionAsync(x, y, -0.1, 1).join()
+    # landed = False
 
-        img = cv2.imdecode(img, cv2.IMREAD_UNCHANGED)
-        img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+    # while not landed:
+    #     img = airsim.string_to_uint8_array(
+    #         client.simGetImage("bottom_center", airsim.ImageType.Scene))
 
-        height, width, _ = img.shape
+    #     img = cv2.imdecode(img, cv2.IMREAD_UNCHANGED)
+    #     img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
 
-        new_height = 64
-        new_width = 64
+    #     height, width, _ = img.shape
 
-        upper_left = (int((width - new_width) // 2),
-                      int((height - new_height) // 2))
-        bottom_right = (int((width + new_width) // 2),
-                        int((height + new_height) // 2))
+    #     new_height = 64
+    #     new_width = 64
 
-        img = img[upper_left[1]: bottom_right[1],
-                  upper_left[0]: bottom_right[0]]
+    #     upper_left = (int((width - new_width) // 2),
+    #                   int((height - new_height) // 2))
+    #     bottom_right = (int((width + new_width) // 2),
+    #                     int((height + new_height) // 2))
 
-        img = cv2.resize(img, (64, 64))
+    #     img = img[upper_left[1]: bottom_right[1],
+    #               upper_left[0]: bottom_right[0]]
 
-        img2show = cv2.resize(img, (480, 480))
+    #     img = cv2.resize(img, (64, 64))
 
-        img = np.asarray([img])
+    #     img2show = cv2.resize(img, (480, 480))
 
-        pred = model.predict(img)
-        print(pred[0][0])
+    #     img = np.asarray([img])
 
-        if pred == 0:
-            text = "No Landing Zone"
-            color = (0, 0, 255)
-        else:
-            text = "Landing Zone"
-            color = (0, 255, 0)
+    #     pred = model.predict(img)
+    #     print(pred[0][0])
 
-        img2show = cv2.putText(img2show, text, (15, 450),
-                               cv2.FONT_HERSHEY_SIMPLEX, 1, color, thickness=2)
-        cv2.imshow("img", img2show)
-        cv2.waitKey(1)
+    #     if pred == 0:
+    #         text = "No Landing Zone"
+    #         color = (0, 0, 255)
+    #     else:
+    #         text = "Landing Zone"
+    #         color = (0, 255, 0)
 
-        pred = 0
-        if pred == 1:
-            print("LANDING")
-            client.moveToPositionAsync(x, y, -0.1, 1).join()
-            landed = True
-        else:
-            print("NOT SAFE TO LAND...MOVING TO NEW POSITION")
-            x -= 1
-            client.moveToPositionAsync(x, y, z, 0.5).join()
-            print("CHECKING NEW SPOT")
+    #     img2show = cv2.putText(img2show, text, (15, 450),
+    #                            cv2.FONT_HERSHEY_SIMPLEX, 1, color, thickness=2)
+    #     cv2.imshow("img", img2show)
+    #     cv2.waitKey(1)
+
+    #     pred = 0
+    #     if pred == 1:
+    #         print("LANDING")
+    #         client.moveToPositionAsync(x, y, -0.1, 1).join()
+    #         landed = True
+    #     else:
+    #         print("NOT SAFE TO LAND...MOVING TO NEW POSITION")
+    #         x -= 1
+    #         client.moveToPositionAsync(x, y, z, 0.5).join()
+    #         print("CHECKING NEW SPOT")
 
 
 def main():
     print("\n\n***Welcome to NavAI***")
-    z = -40
+    z = -25
     print("Enter 'X' coordinate of destination")
     x = int(input())
     print("Enter 'Y' coordinate of destination")
@@ -156,7 +161,6 @@ def main():
     print("\nCurrent Action:")
 
     print('Taking Off...', end='\r')
-    client.takeoffAsync().join()
     print('Takeoff Complete.', end='\r')
 
     print('Rising to 40m', end='\r')
