@@ -38,7 +38,7 @@ class DroneController(BaseModel):
     time: Optional[float] = 0.0
     encoded_img: Optional[Any] = ""
 
-    def evasive_manouver(depth_img):
+    def evasive_manouver(self, depth_img):
         global client
 
         height, width = depth_img.shape
@@ -58,7 +58,7 @@ class DroneController(BaseModel):
             client.moveByVelocityBodyFrameAsync(0, -1, 0, 1).join()
             client.moveByVelocityAsync(0, 0, 0, 1).join()
 
-    def percent_landing_zone(img):
+    def percent_landing_zone(self, img):
         unique, counts = np.unique(
             img.reshape(-1, img.shape[2]), axis=0, return_counts=True)
 
@@ -86,8 +86,6 @@ class DroneController(BaseModel):
         with torch.no_grad():
             image = image.unsqueeze(0)
             output = model(image)
-            # masked = torch.argmax(output, dim=1)
-            # masked = masked.cpu().squeeze(0)
         return output
 
     def decode_segmap(self, image, nc=23):
@@ -127,6 +125,10 @@ class DroneController(BaseModel):
     def landing(self):
         global client
 
+        print("rotating north")
+        client.moveByRollPitchYawThrottleAsync(0.0, 0.0, 0.0, 0.5, 1).join()
+        print("done")
+
         landed = False
 
         newX = self.xCoord
@@ -161,7 +163,7 @@ class DroneController(BaseModel):
 
             landing_zone_percent = self.percent_landing_zone(img)
 
-            if landing_zone_percent > 95.0:
+            if landing_zone_percent >= 95.0:
                 client.moveToPositionAsync(
                     newX, newY, 1, 2).join()
                 client.landAsync()
@@ -200,7 +202,7 @@ class DroneController(BaseModel):
                     newY += 2
 
                 client.moveToPositionAsync(
-                    newX, newY, -30, 1).join()
+                    newX, newY, self.altitude, 1).join()
                 client.moveByVelocityAsync(0, 0, 0, 1).join()
 
         return

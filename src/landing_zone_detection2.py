@@ -71,7 +71,7 @@ def percent_landing_zone(img):
 
     total = sum(counts)
 
-    percentages = [(x/total)*100 for x in counts]
+    percentages = [(x / total) * 100 for x in counts]
 
     dict_percentages = dict(zip(tuples, percentages))
 
@@ -109,16 +109,16 @@ destination_x = x
 destination_y = y
 
 client.moveToPositionAsync(
-    x, y, -30, 2, yaw_mode=airsim.YawMode(is_rate=False, yaw_or_rate=0), drivetrain=airsim.DrivetrainType.ForwardOnly, lookahead=20)
+    x, y, -25, 2, yaw_mode=airsim.YawMode(is_rate=False, yaw_or_rate=0), drivetrain=airsim.DrivetrainType.ForwardOnly, lookahead=20)
 time.sleep(3)
 
 
 client.moveToPositionAsync(
-    x, y, -30, 2).join()
+    x, y, -25, 2).join()
 
 client.moveByVelocityAsync(0, 0, 0, 1).join()
 
-client.moveByAngleZAsync(0, 0, -30, 0.0, 5).join()
+client.moveByRollPitchYawThrottleAsync(0.0, 0.0, 0.0, 0.5, 1).join()
 
 landed = False
 mean = [0.485, 0.456, 0.406]
@@ -142,9 +142,6 @@ while not landed:
 
     cv2.imshow("mask", pred_mask)
     cv2.waitKey(1)
-
-    # cv2.imshow("img", img2show)
-    # cv2.waitKey(1)
 
     height, width, _ = img.shape
 
