@@ -1,3 +1,6 @@
+import sys
+sys.path.append(
+    'C:/Users/seand/OneDrive/Documents/University/Autonomous Drone Navigation/Implementation/AirSimAPI/packages')
 from typing import Optional, Any
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
