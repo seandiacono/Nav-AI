@@ -16,16 +16,16 @@ print("TAKING OFF")
 client.takeoffAsync().join()
 time.sleep(1)
 print("TAKEOFF COMPLETE")
-client.moveToPositionAsync(0, 0, -30, 2).join()
-# client.moveToPositionAsync(30, 30, -40, 5)
+client.moveToPositionAsync(0, 0, -15, 5).join()
+client.moveToPositionAsync(30, 30, -15, 2)
 
 while True:
     img = airsim.string_to_uint8_array(
-        client.simGetImage("front_center", airsim.ImageType.Scene))
+        client.simGetImage("front_center", airsim.ImageType.DisparityNormalized))
 
     img = cv2.imdecode(img, cv2.IMREAD_UNCHANGED)
-    cv2.imwrite("sample_img.png", img)
-    # cv2.imshow("img", img)
+    # cv2.imwrite("sample_img.png", img)
+    cv2.imshow("img", img)
 
     # height, width, _ = img.shape
 
