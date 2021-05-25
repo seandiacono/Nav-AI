@@ -1,0 +1,22 @@
+WITHOUT PUSH BACK:
+
+Avoidance Flights: 59
+COMPLETE
+Estimation Crashes: 13
+EXITING
+
+WITH PUSH BACK:
+
+COMPLETE
+Estimation Crashes: 17
+Avoidance Flights: 62
+EXITING
+
+COMPLETE
+Estimation Crashes: 6
+Avoidance Flights: 80
+EXITING
+
+Destination Coordinates were: x: -23 y: 37
+Destination Coordinates were: x: 39 y: -40
+Destination Coordinates were: x: -48 y: 28

@@ -15,7 +15,11 @@ from MonoDepth2.depth_predicter import DepthFinder
 depth_finder = DepthFinder("mono+stereo_640x192")
 
 
+z = -10
+
+
 def evasive_manouver(depth_img):
+    global z
     height, width = depth_img.shape
 
     bottom_left = depth_img[(height // 2):height, 0:(width // 2)].copy()
@@ -30,23 +34,25 @@ def evasive_manouver(depth_img):
     bottom_right_avg = np.average(bottom_right)
 
     if top_left_avg <= min(top_right_avg, bottom_left_avg, bottom_right_avg):
-        print("GOING TOP LEFT")
+        # print("GOING TOP LEFT")
+        z -= 1
         client.moveByVelocityBodyFrameAsync(0, -1, -1, 1).join()
         client.moveByVelocityAsync(0, 0, 0, 1).join()
     elif top_right_avg <= min(top_left_avg, bottom_left_avg, bottom_right_avg):
-        print("GOING TOP RIGHT")
+        # print("GOING TOP RIGHT")
+        z -= 1
         client.moveByVelocityBodyFrameAsync(0, 1, -1, 1).join()
         client.moveByVelocityAsync(0, 0, 0, 1).join()
     elif bottom_right_avg <= min(top_left_avg, bottom_left_avg, top_right_avg):
-        print("GOING BOTTOM RIGHT")
+        # print("GOING BOTTOM RIGHT")
+        z += 1
         client.moveByVelocityBodyFrameAsync(0, 1, 1, 1).join()
         client.moveByVelocityAsync(0, 0, 0, 1).join()
     elif bottom_left_avg <= min(top_left_avg, bottom_right_avg, top_right_avg):
-        print("GOING BOTTOM LEFT")
+        # print("GOING BOTTOM LEFT")
+        z += 1
         client.moveByVelocityBodyFrameAsync(0, -1, 1, 1).join()
         client.moveByVelocityAsync(0, 0, 0, 1).join()
-    else:
-        print("what")
 
 
 def reset_drone(client):
@@ -76,16 +82,15 @@ for i in range(100):
 
     x = randint(*r)
 
-    r = choice([(-50, -15), (15, 50)])
+    r = choice([(-60, -15), (15, 60)])
 
     y = randint(*r)
-
-    z = -10
 
     dist_to_dest = distance.euclidean(
         [0, 0, z], [x, y, z])
 
     had_avoidance = False
+    z = -10
     for j in range(1):
 
         # Async methods returns Future. Call join() to wait for task to complete.
@@ -98,11 +103,15 @@ for i in range(100):
         while True:
             collided = client.simGetCollisionInfo().has_collided
             if collided and j == 0:
+                print("Destination Coordinates were: x: " +
+                      str(x) + " y: " + str(y))
                 had_avoidance = True
                 estimation_crashes += 1
                 reset_drone(client)
                 break
             elif collided and j == 1:
+                print("Destination Coordinates were: x: " +
+                      str(x) + " y: " + str(y))
                 had_avoidance = True
                 # disparity_crashes += 1
                 reset_drone(client)
@@ -138,7 +147,7 @@ for i in range(100):
                     depth, None, 0, 255, cv2.NORM_MINMAX)
 
             ret, thresh = cv2.threshold(
-                normalizedImg, 175, np.amax(normalizedImg), cv2.THRESH_BINARY)
+                normalizedImg, 135, np.amax(normalizedImg), cv2.THRESH_BINARY)
 
             height, width = thresh.shape
 
@@ -157,12 +166,13 @@ for i in range(100):
 
             # print(average_depth)
 
-            if average_depth > 15:
+            if average_depth > 20:
                 had_avoidance = True
                 # print("TOO CLOSE TO OBJECT - STOPPING AND HOVERING")
-                # client.cancelLastTask()
+                client.cancelLastTask()
                 client.moveByVelocityAsync(0, 0, 0, 1).join()
                 client.hoverAsync().join()
+                # client.moveByVelocityBodyFrameAsync(-1, 0, 0, 2).join()
                 # print("TAKING EVASIVE MANOUVER")
                 evasive_manouver(crop_img)
                 # print("done")
@@ -180,5 +190,5 @@ for i in range(100):
 print("COMPLETE")
 print("Estimation Crashes: " + str(estimation_crashes))
 # print("Disparity Crashes: " + str(disparity_crashes))
-
+print("Avoidance Flights: " + str(avoidance_flights))
 print("EXITING")
