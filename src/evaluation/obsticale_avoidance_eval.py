@@ -77,6 +77,8 @@ estimation_crashes = 0
 
 avoidance_flights = 0
 
+trip_times = []
+
 for i in range(100):
     r = choice([(-50, -15), (15, 50)])
 
@@ -92,6 +94,8 @@ for i in range(100):
     had_avoidance = False
     z = -10
     for j in range(1):
+
+        time_start = time.process_time()
 
         # Async methods returns Future. Call join() to wait for task to complete.
         # print("TAKING OFF")
@@ -125,6 +129,9 @@ for i in range(100):
                 100 - ((current_dist / dist_to_dest) * 100))
 
             if progress >= 95:
+                time_end = time.process_time()
+                elapsed_time = time_end - time_start
+                trip_times.append(elapsed_time)
                 reset_drone(client)
                 break
 
@@ -191,4 +198,6 @@ print("COMPLETE")
 print("Estimation Crashes: " + str(estimation_crashes))
 # print("Disparity Crashes: " + str(disparity_crashes))
 print("Avoidance Flights: " + str(avoidance_flights))
+avg_time = sum(trip_times) / len(trip_times)
+print("Average Completion Time: " + str(avg_time))
 print("EXITING")
