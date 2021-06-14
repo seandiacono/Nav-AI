@@ -17,6 +17,8 @@ depth_finder = DepthFinder("mono+stereo_640x192")
 
 z = -10
 
+velocity = 6
+
 
 def evasive_manouver(depth_img):
     global z
@@ -101,8 +103,8 @@ for i in range(100):
         # print("TAKING OFF")
         client.moveToPositionAsync(0, 0, z, 2).join()
         # print("TAKEOFF COMPLETE")
-        client.moveToPositionAsync(x, y, z, 2, yaw_mode=airsim.YawMode(is_rate=False,
-                                                                       yaw_or_rate=0), drivetrain=airsim.DrivetrainType.ForwardOnly, lookahead=20)
+        client.moveToPositionAsync(x, y, z, velocity, yaw_mode=airsim.YawMode(is_rate=False,
+                                                                              yaw_or_rate=0), drivetrain=airsim.DrivetrainType.ForwardOnly, lookahead=20)
 
         while True:
             collided = client.simGetCollisionInfo().has_collided
@@ -128,7 +130,15 @@ for i in range(100):
             progress = int(
                 100 - ((current_dist / dist_to_dest) * 100))
 
-            if progress >= 95:
+            if progress >= 85:
+                collided = client.simGetCollisionInfo().has_collided
+                if collided and j == 0:
+                    print("Destination Coordinates were: x: " +
+                          str(x) + " y: " + str(y))
+                    had_avoidance = True
+                    estimation_crashes += 1
+                    reset_drone(client)
+                    break
                 time_end = time.process_time()
                 elapsed_time = time_end - time_start
                 trip_times.append(elapsed_time)
@@ -141,7 +151,10 @@ for i in range(100):
 
                 img = cv2.imdecode(img, cv2.IMREAD_UNCHANGED)
 
+                depth_time_s = time.process_time()
                 depth = depth_finder.get_depth_map(img)
+                depth_time_e = time.process_time()
+                print("Inference Time: " + str(depth_time_e - depth_time_s))
                 normalizedImg = cv2.normalize(
                     depth, None, 0, 255, cv2.NORM_MINMAX)
             else:
@@ -174,6 +187,14 @@ for i in range(100):
             # print(average_depth)
 
             if average_depth > 20:
+                collided = client.simGetCollisionInfo().has_collided
+                if collided and j == 0:
+                    print("Destination Coordinates were: x: " +
+                          str(x) + " y: " + str(y))
+                    had_avoidance = True
+                    estimation_crashes += 1
+                    reset_drone(client)
+                    break
                 had_avoidance = True
                 # print("TOO CLOSE TO OBJECT - STOPPING AND HOVERING")
                 client.cancelLastTask()
@@ -184,7 +205,7 @@ for i in range(100):
                 evasive_manouver(crop_img)
                 # print("done")
                 client.moveToPositionAsync(
-                    x, y, z, 2)
+                    x, y, z, velocity)
 
     if had_avoidance:
         avoidance_flights += 1
@@ -193,6 +214,11 @@ for i in range(100):
     print("Estimation Crashes: " + str(estimation_crashes))
     # print("Disparity Crashes: " + str(disparity_crashes))
     print("Avoidance Flights: " + str(avoidance_flights))
+    try:
+        avg_time = sum(trip_times) / len(trip_times)
+    except:
+        avg_time = 0.0
+    print("Average Completion Time: " + str(avg_time))
 
 print("COMPLETE")
 print("Estimation Crashes: " + str(estimation_crashes))

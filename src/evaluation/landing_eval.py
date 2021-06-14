@@ -11,6 +11,7 @@ from PIL import Image
 from scipy import stats
 from collections import Counter
 from random import randint, choice
+from scipy.spatial import distance
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
@@ -77,11 +78,18 @@ def percent_landing_zone(img):
     dict_percentages = dict(zip(tuples, percentages))
 
     try:
-        landing_zone_percent = dict_percentages[(128, 64, 128)]
+        landing_zone_paved_area = dict_percentages[(128, 64, 128)]
     except:
-        landing_zone_percent = 0.0
+        landing_zone_paved_area = 0.0
 
-    return landing_zone_percent
+    try:
+        landing_zone_grass = dict_percentages[(0, 102, 0)]
+    except:
+        landing_zone_grass = 0.0
+
+    landing_zone_percentage = landing_zone_paved_area + landing_zone_grass
+    # print(landing_zone_percentage)
+    return landing_zone_percentage
 
 
 def reset_drone(client):
@@ -95,17 +103,28 @@ def reset_drone(client):
     client.armDisarm(True)
 
 
-model = torch.load('models/DeepLabV3Plus-MobileNet.pt')
-
 # connect to the AirSim simulator
 client = airsim.MultirotorClient()
 client.confirmConnection()
 client.enableApiControl(True)
 client.armDisarm(True)
 
-bad_landings = 0
+bad_landings_unet = 0
+bad_landings_deeplab = 0
+bad_landings_nosyst = 0
+
+safe_landing_surfaces = ["Driveway", "Road", "Landscape", "driveway"]
+
+bad_landing_surfaces_unet = []
+bad_landing_surfaces_deeplab = []
+bad_landing_surfaces_nosyst = []
+
+distance_deeplab = []
+distance_unet = []
+distance_nosyst = []
 
 for i in range(100):
+
     r = choice([(-50, -15), (15, 50)])
 
     x = randint(*r)
@@ -114,95 +133,224 @@ for i in range(100):
 
     y = randint(*r)
 
-    destination_x = x
-    destination_y = y
+    for j in range(3):
 
-    # Async methods returns Future. Call join() to wait for task to complete.
-    client.takeoffAsync()
-    client.moveToPositionAsync(0, 0, -30, 5).join()
-
-    client.moveToPositionAsync(
-        x, y, -25, 2, yaw_mode=airsim.YawMode(is_rate=False, yaw_or_rate=0), drivetrain=airsim.DrivetrainType.ForwardOnly, lookahead=20)
-
-    client.moveToPositionAsync(
-        x, y, -25, 2).join()
-
-    client.moveByVelocityAsync(0, 0, 0, 1).join()
-
-    client.moveByRollPitchYawThrottleAsync(0.0, 0.0, 0.0, 0.5, 1).join()
-
-    landed = False
-    mean = [0.485, 0.456, 0.406]
-    std = [0.229, 0.224, 0.225]
-
-    while not landed:
-        img = airsim.string_to_uint8_array(
-            client.simGetImage("bottom_center", airsim.ImageType.Scene))
-
-        img = cv2.imdecode(img, cv2.IMREAD_UNCHANGED)
-        img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
-        img = cv2.resize(img, (1056, 704))
-
-        img2show = img.copy()
-
-        pred_mask = predict_image(model, img)
-        pred_mask = torch.argmax(
-            pred_mask.squeeze(), dim=0).detach().cpu().numpy()
-
-        pred_mask = decode_segmap(pred_mask)
-
-        height, width, _ = img.shape
-
-        new_height = 100
-        new_width = 100
-
-        upper_left = (int((width - new_width) // 2),
-                      int((height - new_height) // 2))
-        bottom_right = (int((width + new_width) // 2),
-                        int((height + new_height) // 2))
-
-        img = pred_mask[upper_left[1]: bottom_right[1],
-                        upper_left[0]: bottom_right[0]].copy()
-
-        landing_zone_percent = percent_landing_zone(img)
-
-        if landing_zone_percent > 95.0:
-            client.moveToPositionAsync(
-                destination_x, destination_y, 1, 2).join()
-            time.sleep(2)
-            object_id = client.simGetCollisionInfo().object_id
+        if j == 0:
+            model = torch.load('models/DeepLabV3Plus-Mobilenetv2.pt')
         else:
-            height, width, _ = pred_mask.shape
+            model = torch.load('models/UNET-Mobilenetv2.pt')
 
-            bottom_left = pred_mask[(height // 2):height,
-                                    0:(width // 2)].copy()
-            bottom_right = pred_mask[(height // 2):height,
-                                     (width // 2):width].copy()
-            top_left = pred_mask[0:(height // 2), 0:(width // 2)].copy()
-            top_right = pred_mask[0:(height // 2), (width // 2):width].copy()
+        destination_x = x
+        destination_y = y
 
-            top_left_percent = percent_landing_zone(top_left)
-            top_right_percent = percent_landing_zone(top_right)
-            bottom_left_percent = percent_landing_zone(bottom_left)
-            bottom_right_percent = percent_landing_zone(bottom_right)
+        client.moveToPositionAsync(0, 0, -30, 5).join()
 
-            if top_left_percent > max(top_right_percent, bottom_left_percent, bottom_right_percent):
-                # print("Moving Top left")
-                destination_x += 2
-                destination_y += -2
-            elif top_right_percent > max(top_left_percent, bottom_left_percent, bottom_right_percent):
-                # print("Moving Top right")
-                destination_x += 2
-                destination_y += 2
-            elif bottom_left_percent > max(top_left_percent, top_right_percent, bottom_right_percent):
-                # print("Moving bottom left")
-                destination_x += -2
-                destination_y += -2
-            elif bottom_right_percent > max(top_left_percent, top_right_percent, bottom_left_percent):
-                # print("Moving bottom right")
-                destination_x += -2
-                destination_y += 2
+        client.moveToPositionAsync(
+            x, y, -30, 3).join()
 
-            client.moveToPositionAsync(
-                destination_x, destination_y, -30, 1).join()
-            client.moveByVelocityAsync(0, 0, 0, 1).join()
+        client.moveByVelocityAsync(0, 0, 0, 1).join()
+
+        landed = False
+        mean = [0.485, 0.456, 0.406]
+        std = [0.229, 0.224, 0.225]
+
+        search_count = 0
+
+        while not landed:
+            if j != 2:
+                img = airsim.string_to_uint8_array(
+                    client.simGetImage("bottom_center", airsim.ImageType.Scene))
+
+                img = cv2.imdecode(img, cv2.IMREAD_UNCHANGED)
+                img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+                img = cv2.resize(img, (1056, 704))
+
+                img2show = img.copy()
+
+                pred_mask = predict_image(model, img)
+                pred_mask = torch.argmax(
+                    pred_mask.squeeze(), dim=0).detach().cpu().numpy()
+
+                pred_mask = decode_segmap(pred_mask)
+
+                height, width, _ = img.shape
+
+                new_height = 100
+                new_width = 100
+
+                upper_left = (int((width - new_width) // 2),
+                              int((height - new_height) // 2))
+                bottom_right = (int((width + new_width) // 2),
+                                int((height + new_height) // 2))
+
+                img = pred_mask[upper_left[1]: bottom_right[1],
+                                upper_left[0]: bottom_right[0]].copy()
+
+                landing_zone_percent = percent_landing_zone(img)
+                
+                if landing_zone_percent > 95.0:
+                    client.moveToPositionAsync(
+                        destination_x, destination_y, -10, 5).join()
+                    client.enableApiControl(False)
+                    client.armDisarm(False)
+                    time.sleep(3)
+                    client.enableApiControl(True)
+                    client.armDisarm(True)
+                    object_name = client.simGetCollisionInfo().object_name
+                    # print("Object Name: " + str(object_name))
+                    landing_surface = object_name.split("_")[0]
+                    if landing_surface not in safe_landing_surfaces:
+                        if j == 0:
+                            bad_landings_deeplab += 1
+                            bad_landing_surfaces_deeplab.append(
+                                landing_surface)
+                        else:
+                            bad_landings_unet += 1
+                            bad_landing_surfaces_unet.append(landing_surface)
+
+                    position = client.simGetVehiclePose().position
+                    current_dist = distance.euclidean([position.x_val, position.y_val, position.z_val], [
+                        x, y, 0])
+
+                    if j == 0:
+                        distance_deeplab.append(current_dist)
+                    else:
+                        distance_unet.append(current_dist)
+
+                    reset_drone(client)
+                    break
+                else:
+                    search_count += 1
+                    height, width, _ = pred_mask.shape
+
+                    bottom_left = pred_mask[(height // 2):height,
+                                            0:(width // 2)].copy()
+                    bottom_right = pred_mask[(height // 2):height,
+                                             (width // 2):width].copy()
+                    top_left = pred_mask[0:(
+                        height // 2), 0:(width // 2)].copy()
+                    top_right = pred_mask[0:(height // 2),
+                                          (width // 2):width].copy()
+
+                    top_left_percent = percent_landing_zone(top_left)
+                    top_right_percent = percent_landing_zone(top_right)
+                    bottom_left_percent = percent_landing_zone(bottom_left)
+                    bottom_right_percent = percent_landing_zone(bottom_right)
+
+                    if top_left_percent > max(top_right_percent, bottom_left_percent, bottom_right_percent):
+                        # print("Moving Top left")
+                        destination_x += 2
+                        destination_y += -2
+                    elif top_right_percent > max(top_left_percent, bottom_left_percent, bottom_right_percent):
+                        # print("Moving Top right")
+                        destination_x += 2
+                        destination_y += 2
+                    elif bottom_left_percent > max(top_left_percent, top_right_percent, bottom_right_percent):
+                        # print("Moving bottom left")
+                        destination_x += -2
+                        destination_y += -2
+                    elif bottom_right_percent > max(top_left_percent, top_right_percent, bottom_left_percent):
+                        # print("Moving bottom right")
+                        destination_x += -2
+                        destination_y += 2
+
+                    if search_count >= 25:
+                        client.moveToPositionAsync(
+                            destination_x, destination_y, -10, 5).join()
+                        client.enableApiControl(False)
+                        client.armDisarm(False)
+                        time.sleep(3)
+                        client.enableApiControl(True)
+                        client.armDisarm(True)
+                        object_name = client.simGetCollisionInfo().object_name
+                        # print("Object Name: " + str(object_name))
+                        landing_surface = object_name.split("_")[0]
+                        if landing_surface not in safe_landing_surfaces:
+                            if j == 0:
+                                bad_landings_deeplab += 1
+                                bad_landing_surfaces_deeplab.append(
+                                    landing_surface)
+                            else:
+                                bad_landings_unet += 1
+                                bad_landing_surfaces_unet.append(
+                                    landing_surface)
+
+                        position = client.simGetVehiclePose().position
+                        current_dist = distance.euclidean([position.x_val, position.y_val, position.z_val], [
+                            x, y, 0])
+
+                        if j == 0:
+                            distance_deeplab.append(current_dist)
+                        else:
+                            distance_unet.append(current_dist)
+                        reset_drone(client)
+                        break
+                    client.moveToPositionAsync(
+                        destination_x, destination_y, -30, 1).join()
+                    client.moveByVelocityAsync(0, 0, 0, 1).join()
+            else:
+                client.moveToPositionAsync(
+                    destination_x, destination_y, -10, 5).join()
+                client.enableApiControl(False)
+                client.armDisarm(False)
+                time.sleep(3)
+                client.enableApiControl(True)
+                client.armDisarm(True)
+                object_name = client.simGetCollisionInfo().object_name
+                # print("Object Name: " + str(object_name))
+                landing_surface = object_name.split("_")[0]
+                if landing_surface not in safe_landing_surfaces:
+                    bad_landings_nosyst += 1
+                    bad_landing_surfaces_nosyst.append(landing_surface)
+
+                position = client.simGetVehiclePose().position
+                current_dist = distance.euclidean([position.x_val, position.y_val, position.z_val], [
+                    x, y, 0])
+
+                distance_nosyst.append(current_dist)
+                reset_drone(client)
+                break
+    print("Loop No: " + str(i + 1))
+    print("Bad Landings DeepLab: " + str(bad_landings_deeplab))
+    print("Average Dist DeepLab: " +
+          str(sum(distance_deeplab) / len(distance_deeplab)))
+    print("Bad Landings UNET: " + str(bad_landings_unet))
+    print("Average Dist UNET: " + str(sum(distance_unet) / len(distance_unet)))
+    print("Bad Landings No system: " + str(bad_landings_nosyst))
+    print("Average Dist No system: " +
+          str(sum(distance_nosyst) / len(distance_nosyst)))
+
+    if len(bad_landing_surfaces_deeplab) > 0:
+        surface_freq = Counter(bad_landing_surfaces_deeplab)
+        print("DEEPLAB: ")
+        print(surface_freq)
+
+    if len(bad_landing_surfaces_unet) > 0:
+        surface_freq = Counter(bad_landing_surfaces_unet)
+        print("UNET: ")
+        print(surface_freq)
+
+    if len(bad_landing_surfaces_nosyst) > 0:
+        surface_freq = Counter(bad_landing_surfaces_nosyst)
+        print("No System: ")
+        print(surface_freq)
+
+
+print("COMPLETE")
+print("Bad Landings DeepLab: " + str(bad_landings_deeplab))
+print("Average Dist DeepLab: " +
+      str(sum(distance_deeplab) / len(distance_deeplab)))
+print("Bad Landings UNET: " + str(bad_landings_unet))
+print("Average Dist UNET: " + str(sum(distance_unet) / len(distance_unet)))
+print("Bad Landings No system: " + str(bad_landings_nosyst))
+print("Average Dist No system: " +
+      str(sum(distance_nosyst) / len(distance_nosyst)))
+surface_freq = Counter(bad_landing_surfaces_deeplab)
+print("DEEPLAB: ")
+print(surface_freq)
+surface_freq = Counter(bad_landing_surfaces_unet)
+print("UNET: ")
+print(surface_freq)
+surface_freq = Counter(bad_landing_surfaces_nosyst)
+print("No System: ")
+print(surface_freq)

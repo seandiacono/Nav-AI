@@ -1,0 +1,43 @@
+DEEPLAB
+
+COMPLETE
+Bad Landings: 33
+Counter({'Roof': 14, 'Swimming': 8, 'Garden': 4, 'driveway': 4, 'Wall': 1, 'Veranda': 1, 'Chimney': 1})
+
+UNET
+
+COMPLETE
+Bad Landings: 25
+Counter({'Roof': 16, 'driveway': 3, 'Swimming': 2, 'Veranda': 1, 'Garden': 1, 'Street': 1, 'Fence': 1})
+
+NO SYSTEM
+
+COMPLETE
+Bad Landings: 45
+Counter({'Roof': 34, 'Veranda': 5, 'Outer': 2, 'driveway': 1, 'Hedge': 1, 'Wall': 1, 'Porch': 1})
+
+
+COMPLETE
+Bad Landings DeepLab: 25
+Average Dist DeepLab: 10.974775971264526
+Bad Landings UNET: 27
+Average Dist UNET: 10.393442825468249
+Bad Landings No system: 48
+Average Dist No system: 3.2857212592615723
+DEEPLAB:
+Counter({'Roof': 12, 'Swimming': 5, 'Veranda': 3, 'Hedge': 2, 'Chimney': 1, 'Porch': 1, 'Wall': 1})
+UNET:
+Counter({'Roof': 14, 'Hedge': 4, 'Swimming': 4, 'Veranda': 3, 'Birch': 1, 'Street': 1})
+No System:
+Counter({'Roof': 30, 'Hedge': 9, 'Wall': 3, 'Veranda': 3, 'Swimming': 2, 'Chimney': 1})
+
+
+DeepLab
+
+Test Set mIoU 0.35166792605331554
+Test Set Pixel Accuracy 0.8602833218044704
+
+UNET
+
+Test Set mIoU 0.2817580639241887
+Test Set Pixel Accuracy 0.8243783173737702

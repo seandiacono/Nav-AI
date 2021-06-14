@@ -43,22 +43,34 @@ class DroneController(BaseModel):
 
     def evasive_manouver(self, depth_img):
         global client
-
         height, width = depth_img.shape
 
-        left = depth_img[0:height, 0:(width // 2)].copy()
-        right = depth_img[0:height, (width // 2):width].copy()
+        bottom_left = depth_img[(height // 2):height, 0:(width // 2)].copy()
+        bottom_right = depth_img[(height // 2):height,
+                                 (width // 2):width].copy()
+        top_left = depth_img[0:(height // 2), 0:(width // 2)].copy()
+        top_right = depth_img[0:(height // 2), (width // 2):width].copy()
 
-        left_avg = np.average(left)
-        right_avg = np.average(right)
+        top_left_avg = np.average(top_left)
+        top_right_avg = np.average(top_right)
+        bottom_left_avg = np.average(bottom_left)
+        bottom_right_avg = np.average(bottom_right)
 
-        if left_avg > right_avg:
-            print("GOING RIGHT")
-            client.moveByVelocityBodyFrameAsync(0, 1, 0, 1).join()
+        if top_left_avg <= min(top_right_avg, bottom_left_avg, bottom_right_avg):
+            self.altitude -= 1
+            client.moveByVelocityBodyFrameAsync(0, -1, -1, 1).join()
             client.moveByVelocityAsync(0, 0, 0, 1).join()
-        else:
-            print("GOING LEFT")
-            client.moveByVelocityBodyFrameAsync(0, -1, 0, 1).join()
+        elif top_right_avg <= min(top_left_avg, bottom_left_avg, bottom_right_avg):
+            self.altitude -= 1
+            client.moveByVelocityBodyFrameAsync(0, 1, -1, 1).join()
+            client.moveByVelocityAsync(0, 0, 0, 1).join()
+        elif bottom_right_avg <= min(top_left_avg, bottom_left_avg, top_right_avg):
+            self.altitude += 1
+            client.moveByVelocityBodyFrameAsync(0, 1, 1, 1).join()
+            client.moveByVelocityAsync(0, 0, 0, 1).join()
+        elif bottom_left_avg <= min(top_left_avg, bottom_right_avg, top_right_avg):
+            self.altitude += 1
+            client.moveByVelocityBodyFrameAsync(0, -1, 1, 1).join()
             client.moveByVelocityAsync(0, 0, 0, 1).join()
 
     def percent_landing_zone(self, img):
@@ -174,8 +186,7 @@ class DroneController(BaseModel):
             else:
                 height, width, _ = pred_mask.shape
 
-                bottom_left = pred_mask[(height // 2)
-                                         :height, 0:(width // 2)].copy()
+                bottom_left = pred_mask[(height // 2)                                        :height, 0:(width // 2)].copy()
                 bottom_right = pred_mask[(height // 2):height,
                                          (width // 2):width].copy()
                 top_left = pred_mask[0:(height // 2), 0:(width // 2)].copy()
@@ -263,7 +274,7 @@ class DroneController(BaseModel):
                 depth, None, 0, 255, cv2.NORM_MINMAX)
 
             ret, thresh = cv2.threshold(
-                normalizedImg, 175, np.amax(normalizedImg), cv2.THRESH_BINARY)
+                normalizedImg, 135, np.amax(normalizedImg), cv2.THRESH_BINARY)
 
             height, width, _ = decoded_frame.shape
 
@@ -283,6 +294,7 @@ class DroneController(BaseModel):
             # print(average_depth)
 
             if average_depth > 20:
+                self.status = "Avoiding an Obstacle"
                 # print("TOO CLOSE TO OBJECT - STOPPING AND HOVERING")
                 client.moveByVelocityAsync(0, 0, 0, 1).join()
                 client.hoverAsync().join()
@@ -291,6 +303,7 @@ class DroneController(BaseModel):
                 # print("done")
                 client.moveToPositionAsync(
                     self.xCoord, self.yCoord, self.altitude, self.velocity)
+                self.status = "Flying"
 
             if (self.progress > 95):
                 client.moveByVelocityAsync(0, 0, 0, 1).join()
@@ -355,7 +368,7 @@ drone_controller = DroneController()
 
 # model = torch.load('../models/Unet-Mobilenet.pt')
 
-model = torch.load('../models/DeepLabV3Plus-Mobilenet.pt')
+model = torch.load('models/DeepLabV3Plus-Mobilenetv2.pt')
 
 depth_finder = DepthFinder("mono+stereo_640x192")
 
